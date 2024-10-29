@@ -1,7 +1,8 @@
 import express from 'express';
 import dotenv from 'dotenv';
-// import cors from 'cors';
+import cors from 'cors';
 import OpenAI from 'openai';
+import { verifyFirebaseToken } from './firebase.js';
 
 // Load environment variables
 dotenv.config();
@@ -9,11 +10,11 @@ dotenv.config();
 const app = express();
 
 // Middleware
-// const corsOptions = {
-//   origin: 'https://codesensai.study/',  // Replace with your actual React app URL
-//   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
-// };
-// app.use(cors(corsOptions));
+const corsOptions = {
+  origin: 'https://codesensai.study/',  // Replace with your actual React app URL
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.get('/healthcheck', (req, res) => {
@@ -24,23 +25,6 @@ app.get('/healthcheck', (req, res) => {
 const openai = new OpenAI({
   apiKey: process.env.OPEN_AI_KEY,
 });
-
-// Middleware to verify Firebase token
-const verifyFirebaseToken = async (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1]; // Expecting "Bearer <token>"
-
-  if (!token) {
-    return res.status(401).json({ message: 'Unauthorized: No token provided' });
-  }
-
-  try {
-    const decodedToken = await admin.auth().verifyIdToken(token);
-    req.user = decodedToken; // Store user info for further use if needed
-    next(); // Token is valid, proceed to the next middleware
-  } catch (error) {
-    return res.status(403).json({ message: 'Forbidden: Invalid or expired token' });
-  }
-};
 
 // API endpoint for evaluating code
 app.post('/evaluate-code', verifyFirebaseToken, async (req, res) => {
