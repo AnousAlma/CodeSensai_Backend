@@ -9,7 +9,11 @@ dotenv.config();
 const app = express();
 
 // Middleware
-app.use(cors());
+const corsOptions = {
+  origin: 'https://codesensai.study/',  // Replace with your actual React app URL
+  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 app.get('/healthcheck', (req, res) => {
@@ -23,17 +27,17 @@ const openai = new OpenAI({
 
 // API endpoint for evaluating code
 app.post('/evaluate-code', async (req, res) => {
-    const { coding_language, task_description, user_input } = req.body;
-  
-    if (!coding_language || !task_description || !user_input) {
-      return res.status(400).json({
-        message: 'coding_language, task_description, and user_input are required.',
-      });
-    }
-  
-    try {
-      // Create the prompt for OpenAI
-      const prompt = `
+  const { coding_language, task_description, user_input } = req.body;
+
+  if (!coding_language || !task_description || !user_input) {
+    return res.status(400).json({
+      message: 'coding_language, task_description, and user_input are required.',
+    });
+  }
+
+  try {
+    // Create the prompt for OpenAI
+    const prompt = `
   Assuming the following task:
   ${task_description}
   
@@ -58,41 +62,37 @@ app.post('/evaluate-code', async (req, res) => {
   If the code is attempting to do the task and there is a small bug, don't be too harsh but dock some marks and put the problem and the solution in the comments.
   Make sure to only provide the JSON response without any additional text, make sure the values in the JSON are either integers or strings NOTHING ELSE.
   `;
-  
-      // Call OpenAI API
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0,
-        max_tokens: 500,
-      });
-  
-      const responseText = completion.choices[0].message.content.trim();
-  
-      // Attempt to parse the response as JSON
-      let evaluation;
-      try {
-        evaluation = JSON.parse(responseText);
-      } catch (err) {
-        // If parsing fails, extract JSON content using regex
-        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          evaluation = JSON.parse(jsonMatch[0]);
-        } else {
-          throw new Error('Failed to extract JSON from OpenAI response.');
-        }
+
+    // Call OpenAI API
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0,
+      max_tokens: 500,
+    });
+
+    const responseText = completion.choices[0].message.content.trim();
+
+    // Attempt to parse the response as JSON
+    let evaluation;
+    try {
+      evaluation = JSON.parse(responseText);
+    } catch (err) {
+      // If parsing fails, extract JSON content using regex
+      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+      if (jsonMatch) {
+        evaluation = JSON.parse(jsonMatch[0]);
+      } else {
+        throw new Error('Failed to extract JSON from OpenAI response.');
       }
-  
-      res.json(evaluation);
-    } catch (error) {
-      console.error('Error evaluating code:', error);
-      res.status(500).json({ message: 'Error evaluating code', error: error.message });
     }
-  });
 
-
-
-
+    res.json(evaluation);
+  } catch (error) {
+    console.error('Error evaluating code:', error);
+    res.status(500).json({ message: 'Error evaluating code', error: error.message });
+  }
+});
 
 // Start the server
 const PORT = process.env.PORT || 5000;
