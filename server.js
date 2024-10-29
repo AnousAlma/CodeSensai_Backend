@@ -94,7 +94,8 @@ app.post('/evaluate-code', verifyFirebaseToken, async (req, res) => {
 
 
 // Start the server
+// Start the server and bind to 0.0.0.0 to allow external connections
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
+app.listen(PORT, '0.0.0.0', () => {
   console.log(`Server running on port ${PORT}`);
 });
