@@ -10,11 +10,11 @@ dotenv.config();
 const app = express();
 
 // Middleware
-const corsOptions = {
-  origin: 'https://codesensai.study/',  // Replace with your actual React app URL
-  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
-};
-app.use(cors(corsOptions));
+// const corsOptions = {
+//   origin: 'https://codesensai.study/',  // Replace with your actual React app URL
+//   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+// };
+app.use(cors());
 app.use(express.json());
 
 app.get('/healthcheck', (req, res) => {
