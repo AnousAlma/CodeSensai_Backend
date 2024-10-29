@@ -1,6 +1,6 @@
 import express from 'express';
 import dotenv from 'dotenv';
-import cors from 'cors';
+// import cors from 'cors';
 import OpenAI from 'openai';
 
 // Load environment variables
@@ -9,11 +9,11 @@ dotenv.config();
 const app = express();
 
 // Middleware
-const corsOptions = {
-  origin: 'https://codesensai.study/',  // Replace with your actual React app URL
-  optionsSuccessStatus: 200 // Some legacy browsers choke on 204
-};
-app.use(cors(corsOptions));
+// const corsOptions = {
+//   origin: 'https://codesensai.study/',  // Replace with your actual React app URL
+//   optionsSuccessStatus: 200 // Some legacy browsers choke on 204
+// };
+// app.use(cors(corsOptions));
 app.use(express.json());
 
 app.get('/healthcheck', (req, res) => {
@@ -25,8 +25,25 @@ const openai = new OpenAI({
   apiKey: process.env.OPEN_AI_KEY,
 });
 
+// Middleware to verify Firebase token
+const verifyFirebaseToken = async (req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1]; // Expecting "Bearer <token>"
+
+  if (!token) {
+    return res.status(401).json({ message: 'Unauthorized: No token provided' });
+  }
+
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    req.user = decodedToken; // Store user info for further use if needed
+    next(); // Token is valid, proceed to the next middleware
+  } catch (error) {
+    return res.status(403).json({ message: 'Forbidden: Invalid or expired token' });
+  }
+};
+
 // API endpoint for evaluating code
-app.post('/evaluate-code', async (req, res) => {
+app.post('/evaluate-code', verifyFirebaseToken, async (req, res) => {
   const { coding_language, task_description, user_input } = req.body;
 
   if (!coding_language || !task_description || !user_input) {
@@ -36,36 +53,35 @@ app.post('/evaluate-code', async (req, res) => {
   }
 
   try {
-    // Create the prompt for OpenAI
     const prompt = `
-  Assuming the following task:
-  ${task_description}
-  
-  Rate the following code:
-  
-  \`\`\`
-  ${user_input}
-  \`\`\`
-  
-  Provide the results in the following JSON format:
-  
-  {
-    "comments": 1-100,
-    "time_complexity": 1-100,
-    "storage_complexity": 1-100,
-    "readability": 1-100,
-    "overall": 1-100,
-    "thoughts": "Your overall thoughts on the code. Write a sentence or two (feel free to write more if needed) for each topic. MAKE SURE THIS IS A STRING"
-  }
-  
-  If the code is not doing the task that is required, deduct 35% points from all the scores, be very harsh if the code is not doing what the tasks asks it to do.
-  If the code is attempting to do the task and there is a small bug, don't be too harsh but dock some marks and put the problem and the solution in the comments.
-  Make sure to only provide the JSON response without any additional text, make sure the values in the JSON are either integers or strings NOTHING ELSE.
-  `;
+    Assuming the following task:
+    ${task_description}
+    
+    Rate the following code:
+    
+    \`\`\`
+    ${user_input}
+    \`\`\`
+    
+    Provide the results in the following JSON format:
+    
+    {
+      "comments": 1-100,
+      "time_complexity": 1-100,
+      "storage_complexity": 1-100,
+      "readability": 1-100,
+      "overall": 1-100,
+      "thoughts": "Your overall thoughts on the code. Write a sentence or two (feel free to write more if needed) for each topic. MAKE SURE THIS IS A STRING"
+    }
+    
+    If the code is not doing the task that is required, deduct 35% points from all the scores, be very harsh if the code is not doing what the tasks asks it to do.
+    If the code is attempting to do the task and there is a small bug, don't be too harsh but dock some marks and put the problem and the solution in the comments.
+    Make sure to only provide the JSON response without any additional text, make sure the values in the JSON are either integers or strings NOTHING ELSE.
+    `;
 
     // Call OpenAI API
     const completion = await openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: 'gpt-4o-mini',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0,
       max_tokens: 500,
@@ -73,12 +89,10 @@ app.post('/evaluate-code', async (req, res) => {
 
     const responseText = completion.choices[0].message.content.trim();
 
-    // Attempt to parse the response as JSON
     let evaluation;
     try {
       evaluation = JSON.parse(responseText);
     } catch (err) {
-      // If parsing fails, extract JSON content using regex
       const jsonMatch = responseText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
         evaluation = JSON.parse(jsonMatch[0]);
@@ -93,6 +107,7 @@ app.post('/evaluate-code', async (req, res) => {
     res.status(500).json({ message: 'Error evaluating code', error: error.message });
   }
 });
+
 
 // Start the server
 const PORT = process.env.PORT || 5000;
