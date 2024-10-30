@@ -2,7 +2,8 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import OpenAI from 'openai';
-import { verifyFirebaseToken } from './firebase.js';
+import rateLimit from 'express-rate-limit';
+// import { verifyFirebaseToken } from './firebase.js';
 
 // Load environment variables
 dotenv.config();
@@ -17,6 +18,13 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Rate limiting middleware
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10, // Limit each IP to 100 requests per windowMs
+  message: { message: 'Too many requests from this IP, please try again later.' }
+});
+
 app.get('/healthcheck', (req, res) => {
   res.send('Server is running');
 });
@@ -26,8 +34,8 @@ const openai = new OpenAI({
   apiKey: process.env.OPEN_AI_KEY,
 });
 
-// API endpoint for evaluating code
-app.post('/evaluate-code', verifyFirebaseToken, async (req, res) => {
+// API endpoint for evaluating code // verifyFirebaseToken
+app.post('/evaluate-code', limiter, async (req, res) => {
   const { coding_language, task_description, user_input } = req.body;
 
   if (!coding_language || !task_description || !user_input) {
