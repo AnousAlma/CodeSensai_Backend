@@ -1,29 +1,31 @@
 import admin from 'firebase-admin';
 import dotenv from 'dotenv';
 
-// Load environment variables
 dotenv.config();
 
-// Initialize Firebase Admin with your service account key
-admin.initializeApp({
-  credential: admin.credential.cert(JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)),
-});
+// Initialize Firebase Admin SDK if not already initialized
+if (!admin.apps.length) {
+  admin.initializeApp({
+    credential: admin.credential.cert({
+      type: process.env.FIREBASE_TYPE,
+      project_id: process.env.FIREBASE_PROJECT_ID,
+      private_key_id: process.env.FIREBASE_PRIVATE_KEY_ID,
+      private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      client_email: process.env.FIREBASE_CLIENT_EMAIL,
+      client_id: process.env.FIREBASE_CLIENT_ID,
+      auth_uri: process.env.FIREBASE_AUTH_URI,
+      token_uri: process.env.FIREBASE_TOKEN_URI,
+      auth_provider_x509_cert_url: process.env.FIREBASE_AUTH_PROVIDER_CERT_URL,
+      client_x509_cert_url: process.env.FIREBASE_CLIENT_CERT_URL
+    }),
+  });
+}
 
-// Middleware to verify Firebase token
-const verifyFirebaseToken = async (req, res, next) => {
-    const token = req.headers.authorization?.split(' ')[1]; // Expecting "Bearer <token>"
-  
-    if (!token) {
-      return res.status(401).json({ message: 'Unauthorized: No token provided' });
-    }
-  
-    try {
-      const decodedToken = await admin.auth().verifyIdToken(token);
-      req.user = decodedToken; // Store user info for further use if needed
-      next(); // Token is valid, proceed to the next middleware
-    } catch (error) {
-      return res.status(403).json({ message: 'Forbidden: Invalid or expired token' });
-    }
-  };
-
-export { verifyFirebaseToken };
+export const verifyFirebaseToken = async (token) => {
+  try {
+    const decodedToken = await admin.auth().verifyIdToken(token);
+    return decodedToken;
+  } catch (error) {
+    throw new Error('Firebase token verification failed');
+  }
+};

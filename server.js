@@ -2,7 +2,7 @@ import express from 'express';
 import dotenv from 'dotenv';
 import cors from 'cors';
 import OpenAI from 'openai';
-// import { verifyFirebaseToken } from './firebase.js';
+import { verifyFirebaseToken } from './firebase.js';
 
 // Load environment variables
 dotenv.config();
@@ -27,7 +27,7 @@ const openai = new OpenAI({
 });
 
 // API endpoint for evaluating code
-app.post('/evaluate-code', async (req, res) => {
+app.post('/evaluate-code', verifyFirebaseToken, async (req, res) => {
   const { coding_language, task_description, user_input } = req.body;
 
   if (!coding_language || !task_description || !user_input) {
